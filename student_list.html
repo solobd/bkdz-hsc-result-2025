@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>শিক্ষার্থীদের তালিকা</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* CSS কোড অপরিবর্তিত আছে */
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        :root {
+            --primary-color: #0d6efd;
+            --surface-color: #ffffff;
+            --background-color: #f4f7f6;
+            --text-color: #212529;
+            --border-color: #dee2e6;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--surface-color);
+            padding: clamp(20px, 4vw, 30px);
+            border-radius: 10px;
+            box-shadow: var(--box-shadow);
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: clamp(1.5rem, 4vw, 2.2rem);
+        }
+        #loading {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #555;
+            padding: 30px;
+        }
+        #student-list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .student-card {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fdfdfd;
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+        .student-card:hover {
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+        .student-photo {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-right: 20px;
+            background-color: #e9ecef;
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .student-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .student-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 0 0 5px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .student-reg {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #555;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>সকল শিক্ষার্থীদের তালিকা</h1>
+        <div id="loading">
+            <i class="fas fa-spinner fa-spin"></i> তথ্য লোড হচ্ছে...
+        </div>
+        <div id="student-list-container">
+            </div>
+    </div>
+
+    <script>
+        // JavaScript কোড শুরু
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStudentData();
+        });
+
+        async function loadStudentData() {
+            const listContainer = document.getElementById('student-list-container');
+            const loadingElement = document.getElementById('loading');
+            
+            try {
+                const response = await fetch('Students List.json');
+                if (!response.ok) throw new Error('Students List.json ফাইলটি পাওয়া যায়নি।');
+                
+                const students = await response.json();
+                loadingElement.style.display = 'none';
+
+                if (!students || students.length === 0) {
+                    listContainer.innerHTML = "<p>কোনো শিক্ষার্থীর তথ্য পাওয়া যায়নি।</p>";
+                    return;
+                }
+                
+                let allCardsHTML = ''; 
+                students.forEach(student => {
+                    const regNo = student['Reg. No'];
+                    const name = student['Name'];
+
+                    // === পরিবর্তন: `data-regno` যোগ করা হয়েছে ===
+                    const cardHTML = `
+                    <div class="student-card">
+                        <img src="placeholder.png" alt="${name} এর ছবি" class="student-photo" data-regno="${regNo}">
+                        <div class="student-info">
+                            <div class="student-name">${name}</div>
+                            <div class="student-reg">রেজিঃ ${regNo}</div>
+                        </div>
+                    </div>
+                    `;
+                    allCardsHTML += cardHTML;
+                });
+
+                listContainer.innerHTML = allCardsHTML;
+
+                // === "Lazy Loading" এর জন্য নতুন কোড ===
+                const imagesToLoad = listContainer.querySelectorAll('.student-photo');
+                
+                const imageObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        // ছবিটি যখন স্ক্রিনে দৃশ্যমান হবে
+                        if (entry.isIntersecting) {
+                            const imgElement = entry.target;
+                            const regNo = imgElement.dataset.regno;
+                            
+                            // আসল ছবিটি লোড করার ফাংশন কল করুন
+                            loadStudentPhoto(regNo, imgElement); 
+                            
+                            // এই ছবিটি আর observe করার দরকার নেই
+                            observer.unobserve(imgElement);
+                        }
+                    });
+                });
+
+                // সব ছবিকে observe করা শুরু করুন
+                imagesToLoad.forEach(img => {
+                    imageObserver.observe(img);
+                });
+                // === "Lazy Loading" কোড শেষ ===
+
+            } catch (error) {
+                loadingElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${error.message}`;
+                loadingElement.style.color = 'red';
+            }
+        }
+
+        /**
+         * রেজিস্ট্রেশন নম্বর ব্যবহার করে শিক্ষার্থীর ছবি খুঁজে বের করে এবং প্রদর্শন করে
+         */
+        // === পরিবর্তন: `photoElement` প্যারামিটার যোগ করা হয়েছে ===
+        async function loadStudentPhoto(regNo, photoElement) {
+            if (!photoElement) return;
+
+            const prefixes = ['2113', '2118', '2018', '2313', '2213', '2318'];
+            const instituteCodes = ['118733', '118912', '115944']; 
+            const photoExtension = '.jpg'; // <-- আপনার ছবির ফরম্যাট .png হলে এটি পরিবর্তন করুন
+            const placeholderSrc = 'placeholder.png';
+
+            const checkImage = (url) => {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(url);
+                    img.onerror = () => reject();
+                    img.src = url;
+                });
+            };
+
+            for (const prefix of prefixes) {
+                for (const code of instituteCodes) {
+                    const url = `Photo/${prefix}_${code}${regNo}${photoExtension}`;
+                    try {
+                        const workingUrl = await checkImage(url);
+                        photoElement.src = workingUrl; // ছবি পাওয়া গেলে src আপডেট করুন
+                        return; 
+                    } catch (error) {
+                        // পরবর্তী কম্বিনেশন চেষ্টা করুন
+                    }
+                }
+            }
+            
+            // কোনো ছবি না পাওয়া গেলে প্লেসহোল্ডার ডিফল্ট হিসেবে থাকবে
+            // photoElement.src = placeholderSrc; // এটি না লিখলেও চলবে কারণ placeholder আগে থেকেই src তে আছে
+        }
+        // JavaScript কোড শেষ
+    </script>
+</body>
+</html>
